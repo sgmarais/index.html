@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Roadmap</title>
+
+<style>
+body{
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(135deg,#e3f2fd,#f5f7fa);
+  margin:0;
+  padding:20px;
+}
+
+.container{
+  max-width:800px;
+  margin:auto;
+  background:rgba(255,255,255,0.95);
+  padding:25px;
+  border-radius:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.08);
+  position:relative;
+}
+
+h1{
+  text-align:center;
+  margin-bottom:25px;
+  font-size:22px;
+}
+
+.top-right{
+  position:absolute;
+  right:15px;
+  top:15px;
+}
+
+.input-group{
+  margin-bottom:20px;
+}
+
+input{
+  padding:12px;
+  font-size:16px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  width:100%;
+  box-sizing:border-box;
+  margin-bottom:10px;
+}
+
+button{
+  padding:12px;
+  font-size:15px;
+  border:none;
+  border-radius:12px;
+  background:#1976d2;
+  color:white;
+  cursor:pointer;
+  transition:0.2s;
+  width:100%;
+}
+
+button:hover{
+  opacity:0.9;
+}
+
+.danger{
+  background:#e53935;
+}
+
+.task{
+  margin-top:12px;
+  padding:12px;
+  border-radius:12px;
+  background:#f9fbff;
+}
+
+.completed{
+  text-decoration:line-through;
+  color:gray;
+}
+
+.deadline{
+  font-size:13px;
+  margin-top:5px;
+}
+
+.overdue{
+  color:#e53935;
+  font-weight:600;
+}
+
+#progressBar{
+  width:100%;
+  height:18px;
+  background:#e0e0e0;
+  border-radius:50px;
+  margin-top:20px;
+  overflow:hidden;
+}
+
+#progress{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#42a5f5,#1976d2);
+  border-radius:50px;
+  transition:0.4s ease;
+}
+
+#percentText{
+  text-align:right;
+  margin-top:5px;
+  font-size:14px;
+}
+
+.modal{
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.4);
+  padding:20px;
+  box-sizing:border-box;
+}
+
+.modal-content{
+  background:white;
+  padding:20px;
+  margin:60px auto;
+  width:100%;
+  max-width:400px;
+  border-radius:15px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.2);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="top-right">
+    <button onclick="openDeleteMenu()" style="width:auto;padding:8px 14px;">目標管理</button>
+  </div>
+
+  <h1>My Goal Roadmap</h1>
+
+  <div class="input-group">
+    <h3>大目標</h3>
+    <input type="text" id="mainGoal" placeholder="ここに大目標を書く">
+    <button onclick="saveMainGoal()">保存</button>
+    <p id="goalDisplay"></p>
+  </div>
+
+  <div class="input-group">
+    <h3>小目標追加</h3>
+    <input type="text" id="subGoalInput" placeholder="小目標を書く">
+    <input type="date" id="deadlineInput">
+    <button onclick="addTask()">追加</button>
+  </div>
+
+  <div id="taskList"></div>
+
+  <div id="progressBar">
+    <div id="progress"></div>
+  </div>
+  <p id="percentText">0%</p>
+</div>
+
+<div class="modal" id="deleteModal">
+  <div class="modal-content">
+    <h3>目標管理</h3>
+
+    <h4>小目標</h4>
+    <div id="deleteList"></div>
+
+    <hr>
+
+    <h4>大目標</h4>
+    <button class="danger" onclick="deleteMainGoal()">大目標を削除</button>
+
+    <br><br>
+    <button onclick="closeDeleteMenu()">閉じる</button>
+  </div>
+</div>
+
+<script>
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+let mainGoal = localStorage.getItem("mainGoal") || "";
+
+function saveMainGoal(){
+  mainGoal = document.getElementById("mainGoal").value;
+  localStorage.setItem("mainGoal", mainGoal);
+  displayMainGoal();
+}
+
+function displayMainGoal(){
+  document.getElementById("goalDisplay").textContent = mainGoal;
+}
+displayMainGoal();
+
+function deleteMainGoal(){
+  if(!confirm("本当に大目標を削除しますか？")) return;
+  mainGoal = "";
+  localStorage.removeItem("mainGoal");
+  document.getElementById("mainGoal").value="";
+  displayMainGoal();
+  closeDeleteMenu();
+}
+
+function addTask(){
+  const text = document.getElementById("subGoalInput").value;
+  const deadline = document.getElementById("deadlineInput").value;
+  if(text === "") return;
+
+  tasks.push({text:text, done:false, deadline:deadline});
+  document.getElementById("subGoalInput").value="";
+  document.getElementById("deadlineInput").value="";
+  saveTasks();
+  renderTasks();
+}
+
+function toggleTask(index){
+  tasks[index].done = !tasks[index].done;
+  saveTasks();
+  renderTasks();
+}
+
+function deleteTask(index){
+  if(!confirm("削除しますか？")) return;
+  tasks.splice(index,1);
+  saveTasks();
+  renderTasks();
+  openDeleteMenu();
+}
+
+function saveTasks(){
+  localStorage.setItem("tasks", JSON.stringify(tasks));
+}
+
+function renderTasks(){
+  const list = document.getElementById("taskList");
+  list.innerHTML="";
+  const today = new Date().toISOString().split("T")[0];
+
+  tasks.forEach((task,index)=>{
+    const div = document.createElement("div");
+    div.className="task";
+
+    let deadlineHTML="";
+    if(task.deadline){
+      if(task.deadline < today && !task.done){
+        deadlineHTML = `<div class="deadline overdue">期限: ${task.deadline}（期限超過）</div>`;
+      }else{
+        deadlineHTML = `<div class="deadline">期限: ${task.deadline}</div>`;
+      }
+    }
+
+    div.innerHTML = `
+      <input type="checkbox" ${task.done?"checked":""} onclick="toggleTask(${index})">
+      <span class="${task.done?"completed":""}">${task.text}</span>
+      ${deadlineHTML}
+    `;
+    list.appendChild(div);
+  });
+
+  updateProgress();
+}
+
+function updateProgress(){
+  if(tasks.length===0){
+    document.getElementById("progress").style.width="0%";
+    document.getElementById("percentText").textContent="0%";
+    return;
+  }
+  const doneCount = tasks.filter(t=>t.done).length;
+  const percent = Math.round((doneCount/tasks.length)*100);
+  document.getElementById("progress").style.width=percent+"%";
+  document.getElementById("percentText").textContent=percent+"%";
+}
+
+function openDeleteMenu(){
+  const modal = document.getElementById("deleteModal");
+  const list = document.getElementById("deleteList");
+  list.innerHTML="";
+  tasks.forEach((task,index)=>{
+    const div = document.createElement("div");
+    div.innerHTML = `
+      ${task.text}
+      <button onclick="deleteTask(${index})" style="margin-top:5px;">削除</button>
+    `;
+    list.appendChild(div);
+  });
+  modal.style.display="block";
+}
+
+function closeDeleteMenu(){
+  document.getElementById("deleteModal").style.display="none";
+}
+
+renderTasks();
+</script>
+
+</body>
+</html>
